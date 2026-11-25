@@ -132,18 +132,29 @@ async def upload(file:UploadFile=File(...),kind:str=Form(...),u=Depends(actor)):
 @app.get('/api/faculty/{fid}/records')
 def records(fid:str,u=Depends(actor)):
     rs=connector.candidates(u,fid)
-    return [{**r,'raw':r['raw'] if u['role']!='faculty' else None,'provenance':r.get('provenance',[]) if u['role']!='faculty' else [],'review':store.get('evidence',fid+':'+r['id'])} for r in rs]
+    return [{**r,'raw':r['raw'] if u['role']!='faculty' else None,'provenance':r.get('provenance',[]) if u['role']!='faculty' else [],'review':store.get('evidence',fid+':'+r['id']),'consent':store.get('consents',fid+':'+r['source_id'])} for r in rs]
 @app.get('/api/faculty/{fid}/consents')
 def consents(fid:str,u=Depends(actor)):
     scope(u,fid);return [r for r in store.all('consents') if r['faculty_id']==fid]
 @app.post('/api/faculty/{fid}/consents/{sid}')
 def consent(fid:str,sid:str,body:dict,u=Depends(actor)):
     require_role(u,'faculty');scope(u,fid)
-    if not store.get('sources',sid):fail('Unknown source.',404)
+    profile=store.get('profiles',fid)
+    if not profile or profile.get('identity_status')!='verified':fail('Verify your faculty identity before managing source consent.')
+    source=store.get('sources',sid)
+    if not source:fail('Unknown source.',404)
+    if not connector.intact(sid):fail('Consent source is missing or has changed. Restore the original intact file.')
     if sid not in {r['source_id'] for r in connector.candidates(u,fid)}:fail('Source has no activity assigned to your profile.')
     if not isinstance(body.get('granted'),bool):fail('Choose grant or revoke.')
-    v={'id':fid+':'+sid,'faculty_id':fid,'source_id':sid,'granted':body['granted'],'actor':u['id'],'at':now()}
-    store.put('consents',v);store.audit(u['id'],'consent.change',fid,v);return v
+    previous=store.get('consents',fid+':'+sid)
+    granted=body['granted']
+    v={'id':fid+':'+sid,'faculty_id':fid,'source_id':sid,'granted':granted,'actor':u['id'],'at':now()}
+    store.put('consents',v)
+    store.audit(u['id'],'consent.granted' if granted else 'consent.revoked',fid,{
+        'faculty_id':fid,'source_id':sid,'granted':granted,'actor':u['id'],'at':v['at'],
+        'previous':previous
+    })
+    return v
 @app.post('/api/activities')
 def activity(body:ActivityInput,u=Depends(actor)):
     require_role(u,'faculty');scope(u,body.faculty_id);connector.profile(u,body.faculty_id)

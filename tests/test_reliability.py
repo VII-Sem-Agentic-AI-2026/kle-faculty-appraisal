@@ -82,3 +82,32 @@ def test_duplicate_claim_detection(env,start):
     s=env['store'];r=s.get('records','demo-research');dup={**r,'id':'duplicate-paper'};s.put('records',dup)
     review=s.get('evidence','demo-alex:demo-research');s.put('evidence',{**review,'id':'demo-alex:duplicate-paper','record_id':'duplicate-paper','record_hash':hashobj(dup)})
     out=start();assert out['status']=='blocked';assert any('duplicate' in x['reason'] for x in out['errors'])
+
+
+def test_explicit_faculty_mapping_wins_over_name_alias(env):
+    s=env['store'];r=s.get('records','demo-research')
+    wrong_alias={**r,'id':'explicit-river','faculty_id':'demo-river','authors':['Alex Demo']}
+    s.put('records',wrong_alias)
+    c=Connector(s);alex=env['fixture']['users']['faculty']
+    river=env['fixture']['users']['other']
+    assert 'explicit-river' not in {row['id'] for row in c.candidates(alex,'demo-alex')}
+    assert 'explicit-river' in {row['id'] for row in c.candidates(river,'demo-river')}
+
+
+def test_consent_change_requires_verified_identity_and_audit(env):
+    s=env['store'];c=sign(env,'faculty')
+    assert c.post('/api/faculty/demo-alex/consents/synthetic-research',json={'granted':False}).status_code==200
+    assert c.post('/api/faculty/demo-alex/consents/synthetic-research',json={'granted':True}).status_code==200
+    audit=[e for e in s.audit_rows() if e['action'] in ('consent.revoked','consent.granted')]
+    assert audit
+    assert audit[-1]['subject']=='demo-alex'
+    assert audit[-1]['payload']['actor']==env['fixture']['users']['faculty']['id']
+    assert audit[-1]['payload']['granted'] is True
+
+def test_consent_cannot_be_granted_for_unverified_profile(env):
+    s=env['store'];profile=s.get('profiles','demo-alex')
+    s.put('profiles',{**profile,'identity_status':'pending'})
+    c=sign(env,'faculty')
+    response=c.post('/api/faculty/demo-alex/consents/synthetic-research',json={'granted':True})
+    assert response.status_code==400
+    assert 'Verify your faculty identity' in response.text

@@ -12,7 +12,12 @@ class Connector:
         return p
     def candidates(self,user,fid,category=None):
         p=self.profile(user,fid);aliases={key(a) for a in p['aliases']}
-        records=[r for r in self.store.all('records') if (r.get('faculty_id')==fid or (not r.get('faculty_id') and any(key(a) in aliases for a in r.get('authors',[])))) and (not category or r['category']==category)]
+        records=[]
+        for r in self.store.all('records'):
+            explicit_fid=r.get('faculty_id')
+            assigned=explicit_fid==fid if explicit_fid else any(key(a) in aliases for a in r.get('authors',[]))
+            if assigned and (not category or r['category']==category):
+                records.append(r)
         return records
     def source_path(self,source):
         if source.get('uploaded'):return self.store.path.parent/'uploads'/source['id']

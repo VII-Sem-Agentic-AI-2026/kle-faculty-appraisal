@@ -56,6 +56,15 @@ class Store:
         with self.tx():
             for s in seed['sources']:self.put('sources',s)
             for p in seed['profiles']:self.put('profiles',p)
-            for a in seed['research']+seed['feedback']:self.put('records',a)
+            from .importer import key
+            for a in seed['research']+seed['feedback']:
+                if a.get('category')=='teaching' and not a.get('faculty_id'):
+                    matches=[]
+                    for p in seed['profiles']:
+                        aliases=p.get('aliases') or [p.get('source_name') or p.get('name')]
+                        if any(key(author) in {key(alias) for alias in aliases} for author in a.get('authors',[])):
+                            matches.append(p)
+                    if len(matches)==1:a=dict(a,faculty_id=matches[0]['id'])
+                self.put('records',a)
             self.put('meta',{'id':'import','cycle':seed['cycle'],'notes':seed['notes'],'issues':seed['issues'],'created':now()})
             self.audit('system','sources.staged','import',{'research':len(seed['research']),'feedback':len(seed['feedback']),'source_hashes':[s['sha256'] for s in seed['sources']]})

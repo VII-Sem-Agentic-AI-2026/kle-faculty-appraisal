@@ -55,6 +55,9 @@ def extract(folder=None):
     names=sorted({x['authors'][0] for x in feedback})
     profiles=[{'id':'fac-'+hashlib.sha256(key(n).encode()).hexdigest()[:10],'name':n.title(),'source_name':n,
         'department':'Computer Science and Engineering','identity_status':'pending','aliases':[n]} for n in names]
+    faculty_by_name={key(p['aliases'][0]):p['id'] for p in profiles}
+    for row in feedback:
+        row['faculty_id']=faculty_by_name.get(key(row['authors'][0]))
     return {'sources':sources,'research':list(research.values()),'feedback':feedback,'profiles':profiles,'issues':issues,
         'cycle':'2025-26','start':'2025-08-01','end':'2026-07-31','notes':[
         'Research workbook is a supplied snapshot, not a live integration.',

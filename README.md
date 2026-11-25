@@ -59,6 +59,12 @@ The system has a static browser interface, a FastAPI application, a governed con
 
 The original course problem statement and final course report are not included yet. Their placeholders and the source-code location are indexed in [`Course Project/`](./Course%20Project/README.md).
 
+## Chapter 8 – Lab Assignments
+
+The revised course structure contains 12 labs, including the merged Tool-Using Agent/MCP-Style Connector lab and the merged Evidence Grounding/Ops Resilience lab:
+
+- [Chapter 8 – 12 Lab Assignment Structure](./docs/CHAPTER_8_12_LAB_ASSIGNMENTS.md)
+
 ## Problem Statement
 
 An appraisal process needs to connect claims to their source documents, apply an approved rubric consistently, respect faculty consent and access boundaries, and preserve who reviewed each decision. A workflow that treats imported records as verified or allows automated approval would not meet those requirements.

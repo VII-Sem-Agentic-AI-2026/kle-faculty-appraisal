@@ -29,6 +29,21 @@ def test_end_to_end_gate_export_and_rollback(env,start):
     assert c.post(f"/api/releases/{release['id']}/rollback",json={'note':'Restore this approved historical version.'}).status_code==200
     assert env['store'].verify_audit()
 
+def test_overview_release_count_tracks_releases_without_changing_other_metrics(env,start):
+    c=sign(env,'iqac')
+    before=c.get('/api/overview').json()
+    assert before['released']==0
+    run=start();rid=run['id']
+    decide(env,rid,'dean');decide(env,rid,'hod')
+    assert c.get('/api/overview').json()['released']==0
+    assert decide(env,rid,'iqac').json()['status']=='published'
+    after=c.get('/api/overview').json()
+    assert after['released']==len(env['store'].all('releases'))==1
+    assert {key:after[key] for key in ('profiles','publication_records','feedback_rows')} == {
+        key:before[key] for key in ('profiles','publication_records','feedback_rows')
+    }
+    assert env['store'].verify_audit()
+
 def test_cross_faculty_isolation_and_source_download(env,start):
     r=start();c=sign(env,'other')
     for url in ['/api/faculty/demo-alex/records','/api/faculty/demo-alex/consents','/api/runs/'+r['id'],'/api/faculty/demo-alex/retrieve?q=research']:
